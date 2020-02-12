@@ -82,8 +82,8 @@ Outputs:
 Note: these directions assume you have the AWS CLI installed and configured. Using below mention commands we can deploy, update and delete stack.
 
 ```
-STACK_NAME  := unixtime
-TEMPLATE    := unixtime.yaml
+STACK_NAME  := epoch
+TEMPLATE    := epoch.yaml
 PARAM_STATE := London
 
 all:
