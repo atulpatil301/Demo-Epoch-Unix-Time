@@ -1,0 +1,68 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: "AWS::Serverless-2016-10-31"
+Description: "Genrating wordtime API , which output will be epoch unixtime format"
+Parameters:
+  State:
+    Type: "String"
+    Description: "timezone for State in Europe"
+    Default: "London"
+Resources:
+  role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaRole
+      Path: /service-role/
+
+  # open available API which we can use to get the unix time for London (http://worldtimeapi.org/)
+  worldtime:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      Runtime: python3.7
+      InlineCode: |
+        from botocore.vendored import requests
+        import cfnresponse  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-lambda-function-code-cfnresponsemodule.html#w2ab1c17c25c14b9c15
+
+        def handler(event, context):
+          print(event)
+
+          if event["RequestType"] == "Create" or event["RequestType"] == "Update":
+            try:
+              url = "http://worldtimeapi.org/api/timezone/Europe/{0}.json".format(event["ResourceProperties"]["State"])
+              print(url)
+              response = requests.get(url)
+              response.raise_for_status()
+              print(response.text)
+              cfnresponse.send(event, context, cfnresponse.SUCCESS, response.json())
+            except Exception as e:
+              print(e)
+              cfnresponse.send(event, context, cfnresponse.FAILED, {})
+            return
+
+          if event["RequestType"] == "Delete":
+            # Deleting clouformation resource
+            cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+            return
+      Description: Test of serverless function.
+      MemorySize: 128
+      Timeout: 8
+      Role: !GetAtt role.Arn
+  timezone:
+    Type: "Custom::TimeZone"
+    Properties:
+      ServiceToken: !GetAtt worldtime.Arn
+      State: !Ref State
+Outputs:
+  unixtime:
+    Value: !GetAtt timezone.unixtime
